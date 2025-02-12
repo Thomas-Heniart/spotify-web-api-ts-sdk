@@ -1,5 +1,14 @@
 import type { IValidateResponses } from "../types.js";
 
+class TooManyRequests extends Error {
+    public readonly retryAfter: number | null;
+
+    constructor(retryAfter: string | null) {
+        super("The app has exceeded its rate limits.");
+        this.retryAfter = retryAfter ? parseInt(retryAfter) : null;
+    }
+}
+
 export default class DefaultResponseValidator implements IValidateResponses {
     public async validateResponse(response: Response): Promise<void> {
 
@@ -10,7 +19,7 @@ export default class DefaultResponseValidator implements IValidateResponses {
                 const body = await response.text();
                 throw new Error(`Bad OAuth request (wrong consumer key, bad nonce, expired timestamp...). Unfortunately, re-authenticating the user won't help here. Body: ${body}`);
             case 429:
-                throw new Error("The app has exceeded its rate limits.");
+                throw new TooManyRequests(response.headers.get("Retry-After"));
             default:
                 if (!response.status.toString().startsWith('20')) {
                     const body = await response.text();
